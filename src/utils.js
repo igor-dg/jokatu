@@ -119,7 +119,8 @@ function selectValidPhrase(sistema, tiempo) {
       const shuffledSubjects = [...validSubjects].sort(() => Math.random() - 0.5)
 
       for (const subject of shuffledSubjects) {
-        const validObjects = phrase.phrase.includes('{object}') ? 
+        const hasObject = phrase.phrase.includes('{object}') || !!phrase.variables?.object_fixed
+        const validObjects = hasObject ?
           getValidObjects(sistema, phrase, subject) : [null]
         
         const shuffledObjects = [...validObjects].sort(() => Math.random() - 0.5)
@@ -150,10 +151,8 @@ function conjugacionExists(sistema, tiempo, sujeto, objeto, numero = 'Sing') {
     switch(sistema) {
       case 'nor-nori-nork':
         return !!aditzakData[sistema][numero]?.[sujeto]?.[objeto]?.[tiempo]?.[0]
-      case 'nor-nori': {
-        const sujetoNorNori = numero === 'Sing' ? 'HURA' : 'HAIEK'
-        return !!aditzakData[sistema][sujetoNorNori]?.[objeto]?.[tiempo]?.[0]
-      }
+      case 'nor-nori':
+        return !!aditzakData[sistema][sujeto]?.[objeto]?.[tiempo]?.[0]
       case 'nor-nork':
         // For nor-nork, check if it's a plural object scenario
         if (objeto === 'HAIEK' || (numero === 'Plur' && !objeto)) {
@@ -264,9 +263,8 @@ function obtenerConjugacion(grupo, tiempo, sujeto, objeto, numero = 'Sing') {
       return grupo['nor-nori-nork'][numero]?.[sujeto]?.[objeto]?.[tiempo]?.[0] || null
     } 
     if (grupo['nor-nori']) {
-      const sujetoNorNori = numero === 'Sing' ? 'HURA' : 'HAIEK'
-      return grupo['nor-nori'][sujetoNorNori]?.[objeto]?.[tiempo]?.[0] || null
-    } 
+      return grupo['nor-nori'][sujeto]?.[objeto]?.[tiempo]?.[0] || null
+    }
     if (grupo['nor-nork']) {
       if (objeto === 'HAIEK' || (numero === 'Plur' && !objeto)) {
         return grupo['nor-nork']['HAIEK']?.[sujeto]?.[tiempo]?.[0] || null
