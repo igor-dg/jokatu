@@ -1,8 +1,9 @@
 <script setup>
-import { ref, watch } from 'vue'
-import { RefreshCw, Lightbulb, ChartLine } from 'lucide-vue-next'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { RefreshCw, ChartLine, ChevronLeft, ChevronRight, Check, X } from 'lucide-vue-next'
 import { getSistemaDisplayName, composePhrase } from '@/utils'
 import HintOverlay from './HintOverlay.vue'
+import AditzTiempoCard from './AditzTiempoCard.vue'
 import norConjugations from '@/data/nor-conjugations.json'
 import { useConjugations } from '@/composables/useConjugations'
 import { useStatsService } from '@/composables/useStatsService'
@@ -28,8 +29,14 @@ const results = ref({})
 const megaPistas = ref({})
 const showMegaPistaOverlay = ref(false)
 const currentMegaPista = ref(null)
+const currentIndex = ref(0)
+const direction = ref('next')
+const touchStartX = ref(null)
 
-const basePath = `${import.meta.env.BASE_URL}img/`
+const activeTiempos = computed(() => props.tiempos.filter(t => t.active))
+const finished = computed(() => activeTiempos.value.length > 0 && currentIndex.value >= activeTiempos.value.length)
+const activeTiempo = computed(() => activeTiempos.value[currentIndex.value] || null)
+const peekTiempos = computed(() => activeTiempos.value.slice(currentIndex.value + 1, currentIndex.value + 3))
 
 // Initialize answers object with active times
 watch(() => props.tiempos, (newTiempos) => {
@@ -41,11 +48,12 @@ watch(() => props.tiempos, (newTiempos) => {
   })
   answers.value = newAnswers
   megaPistas.value = {} // Reset megaPistas when times change
+  currentIndex.value = 0
 }, { immediate: true })
 
 const { saveAditzakAttempt } = useStatsService()
 
-const handleInputBlur = async (tiempo) => {
+async function handleValidate(tiempo) {
   if (!answers.value[tiempo]) {
     results.value[tiempo] = null
     return
@@ -56,7 +64,7 @@ const handleInputBlur = async (tiempo) => {
   const cleanCorrect = correctAnswer?.replace(/\(|\)/g, '').toLowerCase()
 
   const isCorrect = cleanAnswer === cleanCorrect
-  
+
   // Guardar estadística
   await saveAditzakAttempt(
     props.gameState.selectedSistema,
@@ -70,18 +78,25 @@ const handleInputBlur = async (tiempo) => {
   }
 }
 
+function handleAnswerInput(tiempo, value) {
+  answers.value[tiempo] = value
+  if (results.value[tiempo]) {
+    results.value = { ...results.value, [tiempo]: null }
+  }
+}
+
 const { getMegaPistaContent, isTextualMegaPista, isTableMegaPista } = useConjugations()
 
 const handleMegaPista = (tiempo) => {
   const sistema = props.gameState.selectedSistema
-  
+
   const content = getMegaPistaContent(sistema, tiempo)
 
   switch(content.type) {
     case 'text':
   const norPersons = ['ni', 'hi', 'hura', 'gu', 'zu', 'zuek', 'haiek']
   const conjugations = norConjugations[tiempo]?.conjugations || []
-  
+
   currentMegaPista.value = {
     isNorSystem: true,
     currentNor: props.gameState.currentSubject,
@@ -134,9 +149,9 @@ const handleMegaPista = (tiempo) => {
   showMegaPistaOverlay.value = true
 }
 
-function getPlaceholder(tiempo) {
-  if (!props.gameState?.originalPhrase || 
-      !props.gameState?.selectedSistema || 
+function getCardPhrase(tiempo) {
+  if (!props.gameState?.originalPhrase ||
+      !props.gameState?.selectedSistema ||
       !props.gameState?.currentSubject) {
     return `${tiempo.name}...`
   }
@@ -160,6 +175,54 @@ function getPlaceholder(tiempo) {
   }
 }
 
+function goTo(index) {
+  const clamped = Math.min(Math.max(index, 0), activeTiempos.value.length)
+  direction.value = clamped >= currentIndex.value ? 'next' : 'prev'
+  currentIndex.value = clamped
+}
+
+function nextCard() {
+  goTo(currentIndex.value + 1)
+}
+
+function previousCard() {
+  goTo(currentIndex.value - 1)
+}
+
+function peekStyle(i) {
+  const depth = i + 1
+  const side = i % 2 === 0 ? 1 : -1
+  return {
+    transform: `translate(${side * depth * 9}px, ${depth * 12}px) rotate(${side * depth * 2.5}deg) scale(${1 - depth * 0.05})`,
+    zIndex: -depth
+  }
+}
+
+function handleTouchStart(event) {
+  touchStartX.value = event.changedTouches[0]?.clientX ?? null
+}
+
+function handleTouchEnd(event) {
+  if (touchStartX.value === null) return
+  const distance = (event.changedTouches[0]?.clientX ?? touchStartX.value) - touchStartX.value
+  if (Math.abs(distance) > 55) {
+    if (distance < 0) nextCard()
+    if (distance > 0) previousCard()
+  }
+  touchStartX.value = null
+}
+
+function handleKeydown(event) {
+  if (finished.value || showMegaPistaOverlay.value) return
+  const activeTag = document.activeElement?.tagName
+  if (activeTag === 'INPUT' || activeTag === 'TEXTAREA') return
+  if (event.key === 'ArrowRight') nextCard()
+  if (event.key === 'ArrowLeft') previousCard()
+}
+
+onMounted(() => window.addEventListener('keydown', handleKeydown))
+onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
+
 function nextQuestion() {
   answers.value = Object.fromEntries(
     props.tiempos
@@ -168,6 +231,8 @@ function nextQuestion() {
   )
   results.value = {}
   megaPistas.value = {}
+  currentIndex.value = 0
+  direction.value = 'next'
   emit('restart-game')
 }
 
@@ -181,7 +246,7 @@ const goToStats = () => {
 </script>
 
 <template>
-  <div class="space-y-8">
+  <div class="space-y-6">
     <!-- Game Info -->
     <div class="flex justify-center">
       <div class="space-y-1 text-center">
@@ -215,45 +280,93 @@ const goToStats = () => {
       </button>
     </div>
 
-    <!-- Input Fields -->
-    <div v-if="gameState.currentPhrase" class="space-y-4">
-      <div 
-        v-for="tiempo in tiempos" 
-        :key="tiempo.id"
-        v-show="tiempo.active" 
-        class="space-y-2"
-      >
-        <label :for="tiempo.id" class="block text-sm font-medium text-[var(--text-secondary)]">
-          {{ tiempo.name }}
-        </label>
-        <div class="relative flex items-center gap-2">
-          <input
-            :id="tiempo.id"
-            type="text"
-            v-model="answers[tiempo.id]"
-            @blur="handleInputBlur(tiempo.id)"
-            class="input text-lg"
-            :placeholder="getPlaceholder(tiempo)"
-          />
-          <button
-            @click="handleMegaPista(tiempo.id)"
-            class="p-2.5 rounded-md text-white shadow-sm transition-all duration-200 bg-[var(--accent-warning)] hover:bg-[var(--accent-warning-hover)] active:scale-95"
-          >
-            <Lightbulb class="w-5 h-5" />
-          </button>
-          <span
-            v-if="results[tiempo.id]"
-            :class="{
-              'absolute right-12 px-3 py-1 rounded-md text-sm font-medium text-center shrink-0': true,
-              'bg-[var(--accent-success)] text-white': results[tiempo.id] === 'zuzena',
-              'bg-[var(--accent-danger)] text-white': results[tiempo.id] === 'okerra'
-            }"
-          >
-            {{ results[tiempo.id] }}
-          </span>
-        </div>
+    <template v-if="gameState.currentPhrase && activeTiempos.length">
+      <div v-if="!finished" class="flex items-center justify-center">
+        <span class="label-chip">{{ currentIndex + 1 }} / {{ activeTiempos.length }}</span>
       </div>
-    </div>
+
+      <Transition name="panel-fade" mode="out-in">
+        <!-- Card stack -->
+        <div v-if="!finished" key="cards" class="flex items-center gap-2">
+          <button
+            class="icon-button shrink-0"
+            aria-label="Hurrengo denbora"
+            @click="nextCard"
+          >
+            <ChevronLeft class="w-5 h-5" />
+          </button>
+
+          <div
+            class="card-stack"
+            @touchstart.passive="handleTouchStart"
+            @touchend.passive="handleTouchEnd"
+          >
+            <div
+              v-for="(tiempo, i) in peekTiempos"
+              :key="tiempo.id"
+              class="card-stack__peek"
+              aria-hidden="true"
+              :style="peekStyle(i)"
+            >
+              <AditzTiempoCard
+                :tiempo="tiempo"
+                :phrase="getCardPhrase(tiempo)"
+                :model-value="answers[tiempo.id]"
+                :result="results[tiempo.id]"
+                :interactive="false"
+              />
+            </div>
+
+            <Transition :name="`card-slide-${direction}`">
+              <div :key="activeTiempo.id" class="card-stack__active">
+                <AditzTiempoCard
+                  :tiempo="activeTiempo"
+                  :phrase="getCardPhrase(activeTiempo)"
+                  :model-value="answers[activeTiempo.id]"
+                  :result="results[activeTiempo.id]"
+                  @update:model-value="(value) => handleAnswerInput(activeTiempo.id, value)"
+                  @validate="handleValidate(activeTiempo.id)"
+                  @hint="handleMegaPista(activeTiempo.id)"
+                />
+              </div>
+            </Transition>
+          </div>
+
+          <button
+            class="icon-button shrink-0"
+            :disabled="currentIndex === 0"
+            aria-label="Aurreko denbora"
+            @click="previousCard"
+          >
+            <ChevronRight class="w-5 h-5" />
+          </button>
+        </div>
+
+        <!-- Summary -->
+        <div v-else key="summary" class="space-y-2">
+          <div
+            v-for="(tiempo, index) in activeTiempos"
+            :key="tiempo.id"
+            class="flex items-center justify-between gap-2 px-4 py-3 surface-soft cursor-pointer"
+            @click="goTo(index)"
+          >
+            <span class="text-[var(--text-primary)] font-medium">{{ tiempo.name }}</span>
+            <span
+              :class="{
+                'inline-flex items-center gap-1 px-3 py-1 rounded-md text-sm font-medium': true,
+                'bg-[var(--accent-success)] text-white': results[tiempo.id] === 'zuzena',
+                'bg-[var(--accent-danger)] text-white': results[tiempo.id] === 'okerra',
+                'bg-[var(--bg-soft)] text-[var(--text-secondary)]': !results[tiempo.id]
+              }"
+            >
+              <Check v-if="results[tiempo.id] === 'zuzena'" class="w-4 h-4" />
+              <X v-else-if="results[tiempo.id] === 'okerra'" class="w-4 h-4" />
+              {{ results[tiempo.id] || 'erantzun gabe' }}
+            </span>
+          </div>
+        </div>
+      </Transition>
+    </template>
 
     <!-- MegaPista Overlay -->
     <HintOverlay
@@ -267,18 +380,69 @@ const goToStats = () => {
 </template>
 
 <style scoped>
-@media (max-width: 640px) {
-  .input-container {
-    gap: 0.5rem;
-  }
-  
-  .input-container input {
-    min-width: 0;
-    width: 0;
-  }
-  
-  .input-container span {
-    min-width: 70px;
-  }
+.card-stack {
+  position: relative;
+  isolation: isolate;
+  flex: 1;
+  min-width: 0;
+}
+
+.card-stack__peek {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transition: transform 0.2s ease;
+}
+
+.card-stack__peek :deep(.aditz-card) {
+  box-shadow: var(--shadow-card-hover);
+}
+
+.card-stack__active {
+  position: relative;
+  z-index: 1;
+}
+
+.card-slide-next-enter-active,
+.card-slide-next-leave-active,
+.card-slide-prev-enter-active,
+.card-slide-prev-leave-active {
+  transition: transform 0.28s ease, opacity 0.28s ease;
+}
+
+.card-slide-next-leave-active,
+.card-slide-prev-leave-active {
+  position: absolute;
+  inset: 0;
+}
+
+.card-slide-next-enter-from {
+  transform: translateX(24px);
+  opacity: 0;
+}
+
+.card-slide-next-leave-to {
+  transform: translateX(-120%) rotate(-6deg);
+  opacity: 0;
+}
+
+.card-slide-prev-enter-from {
+  transform: translateX(-24px);
+  opacity: 0;
+}
+
+.card-slide-prev-leave-to {
+  transform: translateX(120%) rotate(6deg);
+  opacity: 0;
+}
+
+.panel-fade-enter-active,
+.panel-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.panel-fade-enter-from,
+.panel-fade-leave-to {
+  opacity: 0;
 }
 </style>
