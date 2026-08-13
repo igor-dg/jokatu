@@ -1,19 +1,27 @@
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import HiztegleDefinition from '@/components/Hiztegle/HiztegleDefinition.vue'
 import KeyboardInput from '@/components/Hiztegle/KeyboardInput.vue'
-import { RefreshCw, Languages, BookOpen, CalendarCheck, Shuffle } from 'lucide-vue-next'
-import hiztegiaData from '@/data/hiztegia.json'
+import { RefreshCw, Languages, BookOpen } from 'lucide-vue-next'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import { isValidHiztegleGuess } from '@/services/wordValidation'
 import { useStatsService } from '@/composables/useStatsService'
 import { getDailyWord, getDailyChallengeState, saveDailyChallengeResult } from '@/utils/dailyWord'
+import { getWordPool, DIFFICULTIES, DEFAULT_DIFFICULTY } from '@/utils/hiztegleWordPool'
 
-const MODE_KEY = 'hiztegle_mode'
-const playableHiztegiaData = hiztegiaData.filter(word => /^[A-ZÑ]+$/.test(word))
+const DIFFICULTY_KEY = 'hiztegle_difficulty'
+const DIFFICULTY_IDS = DIFFICULTIES.map(level => level.id)
 
+function getInitialDifficulty() {
+  const stored = localStorage.getItem(DIFFICULTY_KEY)
+  return DIFFICULTY_IDS.includes(stored) ? stored : DEFAULT_DIFFICULTY
+}
+
+const route = useRoute()
+const mode = computed(() => (route.meta.dailyMode ? 'daily' : 'free'))
+const difficulty = ref(getInitialDifficulty())
 const gameState = ref('initial')
-const mode = ref(localStorage.getItem(MODE_KEY) === 'free' ? 'free' : 'daily')
 const dailyResult = ref(null)
 const currentWord = ref('')
 const timeLeft = ref(5)
@@ -57,30 +65,30 @@ function addToUsedWords(word) {
   localStorage.setItem(USED_WORDS_KEY, JSON.stringify(usedWords))
 }
 
-function selectRandomWord() {
+async function selectRandomWord() {
+  const pool = await getWordPool(difficulty.value)
   const usedWords = getUsedWords()
   const recentWords = new Set(usedWords.map(entry => entry.word))
-  const availableWords = playableHiztegiaData.filter(word => !recentWords.has(word))
-  
+  const availableWords = pool.filter(word => !recentWords.has(word))
+
   if (availableWords.length === 0) {
     localStorage.removeItem(USED_WORDS_KEY)
-    currentWord.value = playableHiztegiaData[Math.floor(Math.random() * playableHiztegiaData.length)]
+    currentWord.value = pool[Math.floor(Math.random() * pool.length)]
   } else {
     currentWord.value = availableWords[Math.floor(Math.random() * availableWords.length)]
   }
-  
+
   addToUsedWords(currentWord.value)
 }
 
-function setMode(newMode) {
-  if (mode.value === newMode) return
-  mode.value = newMode
-  localStorage.setItem(MODE_KEY, newMode)
-  dailyResult.value = newMode === 'daily' ? getDailyChallengeState() : null
-  gameState.value = 'initial'
+function setDifficulty(id) {
+  if (difficulty.value === id) return
+  difficulty.value = id
+  localStorage.setItem(DIFFICULTY_KEY, id)
+  getWordPool(id) // aurrez kargatzen dugu, "Hasi jolasten" sakatzean itxaronik ez izateko
 }
 
-function startGame() {
+async function startGame() {
   if (mode.value === 'daily') {
     const existing = getDailyChallengeState()
     if (existing) {
@@ -90,12 +98,10 @@ function startGame() {
     }
     currentWord.value = getDailyWord()
   } else {
-    selectRandomWord()
+    await selectRandomWord()
   }
 
   dailyResult.value = null
-  gameState.value = 'definition'
-  timeLeft.value = 5
   attempts.value = []
   currentAttempt.value = ''
   letterStates.value = {}
@@ -106,6 +112,16 @@ function startGame() {
   definitionTimeLeft.value = 5 // Reset definition timer
   gameRecorded.value = false
   if (timer) clearInterval(timer)
+  stopShakeLoop()
+
+  if (mode.value === 'daily') {
+    // Egunerokoan ez dugu definizioa hasieran erakusten, spoiler ez izateko;
+    // botoiekin pista gisa erabil daiteke jokoan zehar.
+    gameState.value = 'game'
+  } else {
+    gameState.value = 'definition'
+    timeLeft.value = 5
+  }
 }
 
 function startDefinitionTimer() {
@@ -198,6 +214,57 @@ async function skipWord() {
 
 const isCheckingWord = ref(false)
 
+// Mezu iragankorrak (hitza ez da existitzen, etab.) toast gisa erakusten dira,
+// zutabearen eta teklatuaren artean lekurik ez dagoelako.
+const gameToastMessage = computed(() => {
+  if (isCheckingWord.value) return 'Hitza egiaztatzen...'
+  if (gameState.value === 'game' && statusMessages.value) return statusMessages.value
+  return ''
+})
+
+const TOAST_DURATION = 2200
+let toastTimer = null
+
+watch(gameToastMessage, (message) => {
+  if (toastTimer) clearTimeout(toastTimer)
+  if (message && !isCheckingWord.value) {
+    toastTimer = setTimeout(() => {
+      statusMessages.value = ''
+    }, TOAST_DURATION)
+  }
+})
+
+// Hitz baliogabearen ondoren, lerroa aldizka astintzen dugu letraren bat
+// ezabatu arte, oraindik editagarri dagoela argi geratzeko.
+const shakeAttempt = ref(false)
+const SHAKE_REPEAT_INTERVAL = 1500
+let shakeLoopTimer = null
+
+function pulseShake() {
+  shakeAttempt.value = false
+  // Bi rAF behar dira: nextTick soilarekin bi aldaketak marko berean
+  // batu daitezke, eta arakatzaileak animazioa berrabiarazi ez.
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      shakeAttempt.value = true
+    })
+  })
+}
+
+function startShakeLoop() {
+  stopShakeLoop()
+  pulseShake()
+  shakeLoopTimer = setInterval(pulseShake, SHAKE_REPEAT_INTERVAL)
+}
+
+function stopShakeLoop() {
+  if (shakeLoopTimer) {
+    clearInterval(shakeLoopTimer)
+    shakeLoopTimer = null
+  }
+  shakeAttempt.value = false
+}
+
 async function checkWordExists(word) {
   return isValidHiztegleGuess(word)
 }
@@ -213,13 +280,13 @@ async function handleAttempt() {
   if (isCheckingWord.value) return
   
   isCheckingWord.value = true
-  statusMessages.value = 'Hitza egiaztatzen...'
-  
+
   try {
     const exists = await checkWordExists(attempt)
     
     if (!exists) {
       statusMessages.value = 'Hitz hori ez da existitzen!'
+      startShakeLoop()
       return
     }
     
@@ -291,6 +358,7 @@ function handleKeyPress(key) {
   if (key === '⌫') {
     currentAttempt.value = currentAttempt.value.slice(0, -1)
     statusMessages.value = ''
+    stopShakeLoop()
   } else if (key === 'ENTER') {
     handleAttempt()
   } else if (currentAttempt.value.length < currentWord.value.length) {
@@ -328,6 +396,8 @@ onMounted(() => {
   gameState.value = 'initial'
   if (mode.value === 'daily') {
     dailyResult.value = getDailyChallengeState()
+  } else {
+    getWordPool(difficulty.value) // aurrez kargatzen dugu jokoa hasi aurretik
   }
   const usedWords = getUsedWords()
   const sevenDaysAgo = new Date()
@@ -344,36 +414,19 @@ onMounted(() => {
 onUnmounted(() => {
   if (timer) clearInterval(timer)
   if (definitionTimer) clearInterval(definitionTimer)
+  if (toastTimer) clearTimeout(toastTimer)
+  stopShakeLoop()
 })
 </script>
 
 <template>
   <div class="page-shell">
-    <PageHeader title="Hiztegle" description="Ikusi definizioa eta asmatu hitza!" />
+    <PageHeader
+      :title="mode === 'daily' ? 'Eguneroko erronka' : 'Hiztegle'"
+      :description="mode === 'daily' ? 'Egun honetan jokatzen duten guztiek hitz bera dute.' : 'Ikusi definizioa eta asmatu hitza!'"
+    />
 
     <div class="max-w-2xl mx-auto mb-24">
-      <!-- Selector de modo -->
-      <div v-if="gameState === 'initial'" class="mode-toggle" role="tablist" aria-label="Hiztegle modua">
-        <button
-          role="tab"
-          :aria-selected="mode === 'daily'"
-          class="mode-toggle__btn"
-          :class="{ 'mode-toggle__btn--active': mode === 'daily' }"
-          @click="setMode('daily')"
-        >
-          <CalendarCheck class="w-4 h-4" /> Eguneroko erronka
-        </button>
-        <button
-          role="tab"
-          :aria-selected="mode === 'free'"
-          class="mode-toggle__btn"
-          :class="{ 'mode-toggle__btn--active': mode === 'free' }"
-          @click="setMode('free')"
-        >
-          <Shuffle class="w-4 h-4" /> Modu librea
-        </button>
-      </div>
-
       <!-- Estado inicial -->
       <div v-if="gameState === 'initial'" class="text-center">
         <template v-if="mode === 'daily' && dailyResult">
@@ -386,20 +439,34 @@ onUnmounted(() => {
               : 'Ez duzu asmatu, baina bihar hitz berria izango duzu!' }}
           </p>
           <p class="daily-result-next">Bihar erronka berria izango duzu. Bitartean, jolastu nahi baduzu:</p>
-          <button
-            @click="setMode('free'); startGame()"
+          <router-link
+            to="/hiztegle"
             class="btn-secondary py-3 px-7 text-lg"
           >
             Jokatu modu librean
+          </router-link>
+        </template>
+        <template v-else>
+          <div v-if="mode === 'free'" class="difficulty-toggle" role="tablist" aria-label="Zailtasun maila">
+            <button
+              v-for="level in DIFFICULTIES"
+              :key="level.id"
+              role="tab"
+              :aria-selected="difficulty === level.id"
+              class="difficulty-toggle__btn"
+              :class="{ 'difficulty-toggle__btn--active': difficulty === level.id }"
+              @click="setDifficulty(level.id)"
+            >
+              {{ level.label }}
+            </button>
+          </div>
+          <button
+            @click="startGame"
+            class="btn-primary py-3 px-7 text-lg"
+          >
+            Hasi jolasten
           </button>
         </template>
-        <button
-          v-else
-          @click="startGame"
-          class="btn-primary py-3 px-7 text-lg"
-        >
-          Hasi jolasten
-        </button>
       </div>
 
       <!-- Fase de definición inicial -->
@@ -420,7 +487,7 @@ onUnmounted(() => {
         <!-- Definición flotante -->
         <Transition name="fade">
     <div v-if="showDefinition && gameState === 'game'"
-         class="fixed inset-x-4 top-4 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-lg z-50">
+         class="fixed inset-x-4 definition-popup sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-lg z-50">
       <div class="card p-4 sm:p-6">
         <HiztegleDefinition
           :word="currentWord"
@@ -477,7 +544,8 @@ onUnmounted(() => {
         </div>
 
         <!-- Grid de intentos -->
-        <div class="grid gap-2 mb-16" 
+        <div class="relative mb-16">
+        <div class="grid gap-2"
      :class="{
        'max-w-[280px] mx-auto': currentWord.length <= 6,
        'w-full': currentWord.length > 6
@@ -505,6 +573,7 @@ onUnmounted(() => {
   <!-- Intento actual -->
   <div v-if="gameState === 'game'"
        class="grid gap-2"
+       :class="{ shake: shakeAttempt }"
        :style="{ gridTemplateColumns: `repeat(${currentWord.length}, minmax(0, 1fr))` }"
   >
     <div v-for="i in currentWord.length" 
@@ -533,8 +602,19 @@ onUnmounted(() => {
   </div>
 </div>
 
-        <!-- Mensaje de estado -->
-        <p v-if="statusMessages" 
+        <!-- Egiaztapen-mezuen toast-a, zutabearen gainean -->
+        <Transition name="toast">
+          <div v-if="gameToastMessage"
+               class="absolute inset-x-0 top-1/2 -translate-y-1/2 z-20 mx-auto w-max max-w-[85%]
+                      px-5 py-3 rounded-lg shadow-lg text-center text-base sm:text-lg font-bold text-white
+                      bg-[var(--accent-warning)]">
+            {{ gameToastMessage }}
+          </div>
+        </Transition>
+        </div>
+
+        <!-- Mensaje de estado (jokoa amaitutakoan) -->
+        <p v-if="gameState === 'complete' && statusMessages"
            class="text-center text-xl font-semibold"
            :class="{
              'text-[var(--accent-success)]': statusMessages.includes('Zorionak'),
@@ -556,12 +636,6 @@ onUnmounted(() => {
           </button>
         </div>
       </div>
-    </div>
-    
-    <div v-if="isCheckingWord" 
-         class="fixed bottom-24 left-1/2 transform -translate-x-1/2 
-                bg-[var(--bg-card)] text-[var(--accent-warning)] border border-[var(--border-card)] px-4 py-2 rounded-md shadow-sm">
-      Hitza egiaztatzen...
     </div>
 
     <!-- Teclado virtual -->
@@ -585,14 +659,40 @@ onUnmounted(() => {
   transform: translateY(-20px);
 }
 
-.mode-toggle {
+.definition-popup {
+  top: calc(var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) + 1rem);
+}
+
+.toast-enter-active,
+.toast-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translate(0, -50%) scale(0.9);
+}
+
+@keyframes shake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(2px); }
+  30%, 50%, 70% { transform: translateX(-4px); }
+  40%, 60% { transform: translateX(4px); }
+}
+
+.shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+.difficulty-toggle {
   display: flex;
   gap: 0.4rem;
   justify-content: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
 }
 
-.mode-toggle__btn {
+.difficulty-toggle__btn {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -606,7 +706,7 @@ onUnmounted(() => {
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
-.mode-toggle__btn--active {
+.difficulty-toggle__btn--active {
   border-color: transparent;
   background: #6C4CF1;
   color: white;

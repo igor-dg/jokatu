@@ -94,7 +94,7 @@ onMounted(async () => {
       </div>
     </header>
 
-    <router-link to="/hiztegle" class="daily-hero" :class="{ 'daily-hero--done': dailyChallenge }">
+    <router-link to="/hiztegle/eguneroko" class="daily-hero" :class="{ 'daily-hero--done': dailyChallenge }">
       <div class="daily-hero__icon">
         <CalendarCheck v-if="dailyChallenge" class="w-6 h-6" />
         <Puzzle v-else class="w-6 h-6" />

@@ -52,3 +52,9 @@ export async function isValidHiztegleGuess(word) {
   const words = await loadWords(normalizedWord.length)
   return words.has(normalizedWord)
 }
+
+// Beste modulu batzuek (adib. zailtasun-mailako hitz-multzoak eraikitzeko)
+// balioztatze-hiztegi berak berrerabil ditzaten, cachea partekatuz.
+export async function loadValidWordSet(length) {
+  return loadWords(length)
+}

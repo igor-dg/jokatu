@@ -40,7 +40,13 @@ const router = createRouter({
       path: '/hiztegle',
       name: 'hiztegle',
       component: () => import('../views/HiztegleView.vue'),
-      meta: { section: 'hiztegle', title: 'Hiztegle' }
+      meta: { section: 'hiztegle', title: 'Hiztegle', dailyMode: false }
+    },
+    {
+      path: '/hiztegle/eguneroko',
+      name: 'hiztegle-eguneroko',
+      component: () => import('../views/HiztegleView.vue'),
+      meta: { section: 'hiztegle', title: 'Eguneroko erronka', dailyMode: true }
     },
     {
       path: '/aditzak',
