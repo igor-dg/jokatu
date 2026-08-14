@@ -105,9 +105,12 @@ Laguntzeko prozesua:
 5. Pull Request bat sortu
 
 ## Lizentzia
-Proiektu hau MIT Lizentziaren pean argitaratu da. Lizentziari buruzko informazio gehiago nahi izanez gero, proiektuaren erroan dagoen `LICENSE` fitxategia kontsultatu.
 
-MIT lizentzia irekia eta permisiboa da, kodearen erabilera, aldaketa eta banaketa errazten duena. Erabiltzaileei baimena ematen die software hau edozein helburutarako erabiltzeko, aldatzeko eta banatzeko, betiere lizentziaren aipamena mantentzen badute.
+Proiektu honen kodea (`src/`, `android/`, `ios/` eta gainerako tresneria) **PolyForm Noncommercial 1.0.0** lizentziaren pean argitaratzen da. Lizentziari buruzko informazio gehiago nahi izanez gero, proiektuaren erroan dagoen `LICENSE` fitxategia kontsultatu, edo <https://polyformproject.org/licenses/noncommercial/1.0.0>.
+
+Lizentzia horrek edonori baimentzen dio kodea erabili, aldatu eta banatzea **helburu ez-komertzialetarako** (ikasketa, esperimentazioa, ekarpenak...). Erabilera komertzialerako (adib. edukiaren edo kodearen bertsio propio bat merkaturatzeko), harremanetan jarri idg.eus-ekin.
+
+**Oharra datuen inguruan**: lizentzia horrek ez ditu estaltzen `src/data/` eta `public/data/` direktorioetan bildutako hiztegi-edukiak (hitz-zerrendak, definizioak, itzulpenak). Eduki horiek jatorrizko iturrien eskubideen pean daude (ikus [Egileak eta eskerrak](#egileak-eta-eskerrak)), eta ez daude berrerabilgarri lizentzia honen bidez.
 
 ## Egileak eta eskerrak
 
