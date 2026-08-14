@@ -34,24 +34,26 @@ const emit = defineEmits(['answer-submitted', 'restart-game', 'validate-answer']
 <template>
   <div class="w-full max-w-md mx-auto game-card md:p-4 lg:p-8 space-y-6 sm:space-y-8">
     <!-- Tab Navigation -->
-    <div class="segmented-control">
-      <!-- Botón 1 -->
-      <button
-  @click="activeTab = 'allTimes'"
-  class="segmented-control__option"
-  :aria-pressed="activeTab === 'allTimes'"
->
-  Denbora guztiak
-</button>
+    <div class="flex items-center gap-3">
+      <div class="segmented-control flex-1 min-w-0">
+        <button
+          class="segmented-control__option"
+          :aria-pressed="activeTab === 'allTimes'"
+          @click="activeTab = 'allTimes'"
+        >
+          Denbora guztiak
+        </button>
 
-<!-- Botón 2 -->
-<button
-  @click="activeTab = 'classic'"
-  class="segmented-control__option"
-  :aria-pressed="activeTab === 'classic'"
->
-  Aleatorioa
-</button>
+        <button
+          class="segmented-control__option"
+          :aria-pressed="activeTab === 'classic'"
+          @click="activeTab = 'classic'"
+        >
+          Aleatorioa
+        </button>
+      </div>
+
+      <slot name="header-action" />
     </div>
 
     <!-- Game Components -->
@@ -64,12 +66,12 @@ const emit = defineEmits(['answer-submitted', 'restart-game', 'validate-answer']
     />
     
     <GameAreaAllTimes
-  v-else
-  :game-state="gameState"
-  :sistemas="sistemas"
-  :tiempos="tiempos"
-  @validate-answer="(data) => $emit('validate-answer', data)"
-  @restart-game="$emit('restart-game')"
-/>
+      v-else
+      :game-state="gameState"
+      :sistemas="sistemas"
+      :tiempos="tiempos"
+      @validate-answer="(data) => $emit('validate-answer', data)"
+      @restart-game="$emit('restart-game')"
+    />
   </div>
 </template>

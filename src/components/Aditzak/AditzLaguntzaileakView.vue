@@ -327,19 +327,6 @@ onMounted(async () => {
 <template>
   <div class="h-full py-4">
     <div class="h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <!-- Header -->
-      <header class="md:hidden w-full max-w-md mx-auto flex items-center justify-end mb-4 md:max-w-none">
-  <h4 class="font-bold text-[var(--text-primary)] mr-4">Ezarpenak</h4>
-  <div class="flex items-center space-x-4">
-    <button 
-      class="btn-secondary rounded-md p-2"
-      @click="showMobileSettings = !showMobileSettings"
-    >
-      <Settings class="w-6 h-6" />
-    </button>
-  </div>
-</header>
-
       <!-- Mobile Settings Modal -->
       <MobileSettingsModal v-model="showMobileSettings">
         <div class="space-y-1">
@@ -393,15 +380,27 @@ onMounted(async () => {
       <!-- Mobile Layout -->
       <div class="md:hidden">
         <GameArea
-      :game-state="gameState"
-      :sistemas="sistemas"
-      :tiempos="tiempos"
-      :initial-active-tab="'allTimes'"
-      @answer-submitted="handleAnswer"
-      @validate-answer="handleValidateAnswer"
-      @restart-game="handleRestartGame"
-      class="w-full max-w-md mx-auto"
-    />
+          :game-state="gameState"
+          :sistemas="sistemas"
+          :tiempos="tiempos"
+          :initial-active-tab="'allTimes'"
+          class="w-full max-w-md mx-auto"
+          @answer-submitted="handleAnswer"
+          @validate-answer="handleValidateAnswer"
+          @restart-game="handleRestartGame"
+        >
+          <template #header-action>
+            <button
+              type="button"
+              class="btn-secondary shrink-0 rounded-md p-2"
+              aria-label="Ezarpenak"
+              title="Ezarpenak"
+              @click="showMobileSettings = true"
+            >
+              <Settings class="w-6 h-6" aria-hidden="true" />
+            </button>
+          </template>
+        </GameArea>
       </div>
 
       <!-- Game Overlay -->

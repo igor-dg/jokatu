@@ -16,7 +16,7 @@ onMounted(() => {
 
 <template>
   <div class="page-shell flex flex-col">
-    <PageHeader title="Aditz laguntzaileak" description="Praktikatu euskal aditz laguntzaileak" />
+    <PageHeader title="Aditz laguntzaileak" />
 
     <!-- Contenido principal con el mismo estilo que Hiztegia -->
     <div class="flex-1">
@@ -24,4 +24,3 @@ onMounted(() => {
     </div>
   </div>
 </template>
-

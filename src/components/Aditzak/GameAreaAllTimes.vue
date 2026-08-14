@@ -260,42 +260,31 @@ const goToStats = () => {
       </div>
     </div>
 
-    <!-- Next and Stats Buttons -->
-    <div class="flex gap-2">
-      <button
-        @click="nextQuestion"
-        title="Aldatu esaldia"
-        class="flex-1 btn-primary rounded-md py-3 px-4 text-lg"
-      >
-        <RefreshCw class="w-5 h-5" />
-        Hurrengoa
-      </button>
-
-      <button
-        @click="goToStats"
-        title="Estatistikak"
-        class="btn-secondary rounded-md py-3 px-4"
-      >
-        <ChartLine class="w-5 h-5" />
-      </button>
-    </div>
-
     <template v-if="gameState.currentPhrase && activeTiempos.length">
-      <div v-if="!finished" class="flex items-center justify-center">
+      <div v-if="!finished" class="flex items-center justify-between">
+        <button
+          class="icon-button"
+          :disabled="currentIndex === 0"
+          aria-label="Aurreko denbora"
+          @click="previousCard"
+        >
+          <ChevronLeft class="w-5 h-5" />
+        </button>
+
         <span class="label-chip">{{ currentIndex + 1 }} / {{ activeTiempos.length }}</span>
+
+        <button
+          class="icon-button"
+          aria-label="Hurrengo denbora"
+          @click="nextCard"
+        >
+          <ChevronRight class="w-5 h-5" />
+        </button>
       </div>
 
       <Transition name="panel-fade" mode="out-in">
         <!-- Card stack -->
-        <div v-if="!finished" key="cards" class="flex items-center gap-2">
-          <button
-            class="icon-button shrink-0"
-            aria-label="Hurrengo denbora"
-            @click="nextCard"
-          >
-            <ChevronLeft class="w-5 h-5" />
-          </button>
-
+        <div v-if="!finished" key="cards" class="pb-8">
           <div
             class="card-stack"
             @touchstart.passive="handleTouchStart"
@@ -331,15 +320,6 @@ const goToStats = () => {
               </div>
             </Transition>
           </div>
-
-          <button
-            class="icon-button shrink-0"
-            :disabled="currentIndex === 0"
-            aria-label="Aurreko denbora"
-            @click="previousCard"
-          >
-            <ChevronRight class="w-5 h-5" />
-          </button>
         </div>
 
         <!-- Summary -->
@@ -367,6 +347,27 @@ const goToStats = () => {
         </div>
       </Transition>
     </template>
+
+    <!-- Global game actions -->
+    <div class="flex gap-2">
+      <button
+        class="flex-1 btn-secondary rounded-md py-3 px-4 text-lg"
+        title="Beste esaldi bat"
+        @click="nextQuestion"
+      >
+        <RefreshCw class="w-5 h-5" />
+        Beste esaldi bat
+      </button>
+
+      <button
+        class="btn-secondary rounded-md py-3 px-4"
+        title="Estatistikak"
+        aria-label="Estatistikak"
+        @click="goToStats"
+      >
+        <ChartLine class="w-5 h-5" aria-hidden="true" />
+      </button>
+    </div>
 
     <!-- MegaPista Overlay -->
     <HintOverlay

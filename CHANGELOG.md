@@ -8,6 +8,14 @@ denda publikoetako "novedades" testuan.
 
 ## [Argitaratu gabea]
 
+### Aldatuta
+- Aditzak ataleko mugikorreko goiburua trinkotu da: modu-hautatzailea eta ezarpenen
+  botoia lerro berean jarri dira, eta azalpen-testua kendu da.
+- Denbora guztiak moduko txartelek zabalera osoa erabiltzen dute orain; nabigazio-geziak
+  kontagailuaren alboetara mugitu dira, eta esaldi osoa aldatzeko ekintzak txartelen
+  azpian kokatu eta "Beste esaldi bat" izena hartu du.
+- `nanoid` mendekotasuna 3.3.18 bertsiora eguneratu da `npm audit fix` bidez.
+
 ## [1.0.1] - 2026-08-14 (build 2)
 
 ### Gehituta
