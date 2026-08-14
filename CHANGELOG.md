@@ -8,6 +8,8 @@ denda publikoetako "novedades" testuan.
 
 ## [Argitaratu gabea]
 
+## [1.0.2] - 2026-08-14 (build 3)
+
 ### Aldatuta
 - Aditzak ataleko mugikorreko goiburua trinkotu da: modu-hautatzailea eta ezarpenen
   botoia lerro berean jarri dira, eta azalpen-testua kendu da.
